@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "X Tweet Cleaner",
+  "name": "트윗 청소기",
   "version": "0.1.0",
-  "description": "Bulk-delete / un-retweet with filters",
+  "description": "트청을 도와드립니다!",
   "permissions": ["storage", "tabs", "scripting", "webRequest"],
   "host_permissions": [
     "https://x.com/*",
