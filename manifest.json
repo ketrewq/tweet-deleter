@@ -8,6 +8,9 @@
     "https://x.com/*",
     "https://twitter.com/*"
   ],
+  "icons": {
+    "64": "cleaning-icon.png"
+  },
   "background": { "service_worker": "service_worker.js" },
   "action": { "default_popup": "popup/popup.html" }
 }
