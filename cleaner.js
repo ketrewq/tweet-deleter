@@ -34,7 +34,7 @@ if (window.__tweetCleanerLoaded) {
         chrome.runtime.onMessage.addListener(async (message) => {
 
             log("Tweet Cleaner received message:", message);
-            
+
             if (message.cmd !== "tweet-clean") return;
 
             let opts = message.opts;
@@ -54,7 +54,7 @@ if (window.__tweetCleanerLoaded) {
             let tweetsQry = credentials.tweetsQry;
             let tweetsQS = credentials.tweetsQS;
             let timelineCTID = credentials.timelineCTID;
-            
+
 
             if (!bearer || !tweetsQry || !timelineCTID) {
                 log("Credentials not found in message, checking storage...");
@@ -76,13 +76,13 @@ if (window.__tweetCleanerLoaded) {
                     "X.com 프로필을 새로고침 ▶ 트윗 몇 줄 스크롤 ▶ 다시 Run");
                 return;
             }
-            
+
             const timelineTid = timelineCTID || rand();
 
             let queryId = tweetsQry;
-            if (!queryId) queryId = await scanQueryId();  
+            if (!queryId) queryId = await scanQueryId();
 
-            const qsTmpl = (tweetsQS || "").replace(/^variables=.*?&/, ""); 
+            const qsTmpl = (tweetsQS || "").replace(/^variables=.*?&/, "");
 
             const csrf = getCK("ct0");
             const uid = getCK("twid")?.substring(4);
@@ -92,38 +92,36 @@ if (window.__tweetCleanerLoaded) {
 
             async function fetchTweets(cursor, retryCount = 0) {
                 const vars = {
-                    userId: uid, 
-                    count: 40, 
-                    includePromotedContent: true, 
-                    withCommunity: true, 
+                    userId: uid,
+                    count: 40,
+                    includePromotedContent: true,
+                    withCommunity: true,
                     withVoice: true,
                     ...(cursor ? { cursor } : {})
                 };
 
-                const url = `https://x.com/i/api/graphql/${tweetsQry}/UserTweetsAndReplies` +
-                    `?variables=${encodeURIComponent(JSON.stringify(vars))}` +
-                    `&${tweetsQS}`;         
+                const url = `https://x.com/i/api/graphql/${queryId}/UserTweetsAndReplies?variables=${encodeURIComponent(JSON.stringify(vars))}&${qsTmpl}`;
 
-                log(`Fetching tweets${cursor ? ` (cursor: ${cursor.slice(0,10)}...)` : ""}${retryCount > 0 ? ` (retry ${retryCount})` : ""}`);
-                
+                log(`Fetching tweets${cursor ? ` (cursor: ${cursor.slice(0, 10)}...)` : ""}${retryCount > 0 ? ` (retry ${retryCount})` : ""}`);
+
                 try {
                     const r = await fetch(url, {
                         headers: {
-                            accept: "*/*", 
-                            "accept-language": AL(), 
+                            accept: "*/*",
+                            "accept-language": AL(),
                             authorization: bearer,
                             "x-csrf-token": csrf,
                             "x-client-transaction-id": timelineTid,
-                            "x-twitter-active-user": "yes", 
+                            "x-twitter-active-user": "yes",
                             "x-twitter-auth-type": "OAuth2Session",
                             "x-twitter-client-language": lang,
-                            "sec-ch-ua": ua, 
-                            "sec-ch-ua-mobile": "?0", 
+                            "sec-ch-ua": ua,
+                            "sec-ch-ua-mobile": "?0",
                             "sec-ch-ua-platform": "\"Windows\""
                         },
                         credentials: "include"
                     });
-                    
+
                     if (r.status === 429) {
                         if (retryCount < 3) {
                             log("Rate limited (429), waiting and retrying...");
@@ -134,14 +132,14 @@ if (window.__tweetCleanerLoaded) {
                             throw new Error("Rate limit exceeded after multiple retries");
                         }
                     }
-                    
+
                     if (!r.ok) {
                         log("Timeline fetch failed:", r.status);
                         const text = await r.text();
                         log("Response:", text);
                         throw new Error("timeline fetch " + r.status);
                     }
-                    
+
                     return r.json();
                 } catch (err) {
                     if (retryCount < 3) {
@@ -153,14 +151,15 @@ if (window.__tweetCleanerLoaded) {
                 }
             }
 
+
             const pass = n => {
                 const L = n.legacy;
-                
+
                 if (!L) {
                     log("Skipping tweet with no legacy data", n);
                     return false;
                 }
-                
+
 
                 if (opts.debug) {
                     log("Evaluating tweet:", {
@@ -170,22 +169,22 @@ if (window.__tweetCleanerLoaded) {
                         is_retweet: L.full_text?.startsWith("RT ") || false
                     });
                 }
-                
+
                 if (opts.ignore.includes(L.id_str)) {
                     if (opts.debug) log("Skipping ignored tweet:", L.id_str);
                     return false;
                 }
-                
+
                 if (opts.ids.length && !opts.ids.includes(L.id_str)) {
                     if (opts.debug) log("Skipping tweet not in ID list:", L.id_str);
                     return false;
                 }
-                
+
                 if (opts.linkOnly && !(L.entities?.urls?.length)) {
                     if (opts.debug) log("Skipping tweet with no links:", L.id_str);
                     return false;
                 }
-                
+
                 if (opts.keywords.length) {
                     const hasKeyword = opts.keywords.some(k => L.full_text?.includes(k));
                     if (!hasKeyword) {
@@ -193,7 +192,7 @@ if (window.__tweetCleanerLoaded) {
                         return false;
                     }
                 }
-                
+
                 if (L.created_at) {
                     const d = new Date(L.created_at);
                     if (opts.after && d < new Date(opts.after)) {
@@ -205,18 +204,18 @@ if (window.__tweetCleanerLoaded) {
                         return false;
                     }
                 }
-                
+
                 if (!opts.unretweet && L.full_text?.startsWith("RT ")) {
                     if (opts.debug) log("Skipping retweet:", L.id_str);
                     return false;
                 }
-                
+
 
                 if (opts.keepPin && L.pinned_tweet_ids_str?.length && L.pinned_tweet_ids_str.includes(L.id_str)) {
                     if (opts.debug) log("Skipping pinned tweet:", L.id_str);
                     return false;
                 }
-                
+
                 return true;
             };
 
@@ -226,18 +225,19 @@ if (window.__tweetCleanerLoaded) {
                 let done = false;
                 let emptyResponseCount = 0;
                 const maxEmpty = 3;
-                
+
                 while (!done) {
                     try {
                         const data = await fetchTweets(cursor);
-
+                        console.log('RAW DATA:', data);
                         const instPaths = [
                             data?.data?.user?.result?.timeline?.timeline?.instructions,
                             data?.data?.user?.result?.timeline_v2?.timeline?.instructions,
+                            data?.data?.user?.result?.timeline_v2?.timeline?.modules,
                             data?.data?.user_result?.result?.timeline?.timeline?.instructions,
                             data?.data?.user_timeline_result?.timeline?.instructions
                         ];
-                        
+
                         let inst = null;
                         for (const path of instPaths) {
                             if (Array.isArray(path)) {
@@ -245,7 +245,7 @@ if (window.__tweetCleanerLoaded) {
                                 break;
                             }
                         }
-                        
+
                         if (!inst) {
                             log("No instructions found in response. Response structure:", JSON.stringify(data).substring(0, 500) + "...");
                             emptyResponseCount++;
@@ -259,23 +259,23 @@ if (window.__tweetCleanerLoaded) {
 
                         let foundEntries = false;
                         let foundCursor = false;
-                        
+
                         for (const blk of inst) {
-                            if (!['TimelineAddEntries', 'TimelineAddToModule'].includes(blk.type)) continue;
-                            
+                            if (blk.type !== 'TimelineAddEntries' && blk.type !== 'TimelineAddToModule') continue;
+
                             for (const e of blk.entries || []) {
 
-                                if (e.entryId?.startsWith("tweet-")) {
+                                if (e.content?.itemContent?.tweet_results) {
                                     foundEntries = true;
                                     const tweetResult = e.content?.itemContent?.tweet_results?.result ||
-                                                      e.content?.items?.[0]?.item?.itemContent?.tweet_results?.result;
-                                    
+                                        e.content?.items?.[0]?.item?.itemContent?.tweet_results?.result;
+
                                     if (tweetResult) {
-   
-                                        const tweetToCheck = tweetResult.legacy ? 
-                                            tweetResult : 
+
+                                        const tweetToCheck = tweetResult.legacy ?
+                                            tweetResult :
                                             tweetResult.tweet || tweetResult;
-                                            
+
                                         if (tweetToCheck && pass(tweetToCheck)) {
                                             const tweetId = tweetToCheck.rest_id || tweetToCheck.legacy?.id_str;
                                             if (tweetId && !ids.includes(tweetId)) {
@@ -285,10 +285,18 @@ if (window.__tweetCleanerLoaded) {
                                         }
                                     }
                                 }
-                                
+                                if (Array.isArray(e.content?.items)) {
+                                    for (const mod of e.content.items) {
+                                        const t = mod.item?.itemContent?.tweet_results?.result;
+                                        if (!t || !t.legacy) continue;
+                                        // 여기서 pass(t) 검사 후 id 뽑기
+                                        const id = t.legacy.id_str;
+                                        if (pass(t) && !ids.includes(id)) ids.push(id);
+                                        foundEntries = true;
+                                    }
+                                }
 
-                                if (e.entryId?.startsWith("cursor-bottom-") || 
-                                    e.entryId?.includes("cursor-bottom")) {
+                                if (e.entryId.startsWith('cursor-top') || e.entryId.startsWith('cursor-bottom') || e.entryId.includes('cursor')) {
                                     const newCursor = e.content?.value || e.content?.itemContent?.value;
                                     if (newCursor && newCursor !== cursor) {
                                         cursor = newCursor;
@@ -298,28 +306,28 @@ if (window.__tweetCleanerLoaded) {
                                 }
                             }
                         }
-                        
+
 
                         if (!foundEntries) {
                             log("No tweet entries found in this batch");
                             emptyResponseCount++;
                         } else {
-                            emptyResponseCount = 0; 
+                            emptyResponseCount = 0;
                         }
-                        
+
                         if (!foundCursor) {
                             log("No cursor found, we've reached the end");
                             done = true;
                         }
-                        
+
                         if (emptyResponseCount >= maxEmpty) {
                             log("Too many empty responses, stopping harvest");
                             done = true;
                         }
-                        
-                        
+
+
                         log(`Progress: found ${ids.length} tweets to delete so far`);
-                        
+
 
                         await sleep(1000);
                     } catch (err) {
@@ -332,7 +340,7 @@ if (window.__tweetCleanerLoaded) {
                         }
                     }
                 }
-                
+
                 return ids;
             }
 
@@ -340,23 +348,23 @@ if (window.__tweetCleanerLoaded) {
                 const delEP = "https://x.com/i/api/graphql/VaenaVgh5q5ih7kvyVjgtg/DeleteTweet";
                 const delTid = rand();
                 const results = { success: 0, failed: 0 };
-                
+
                 for (let i = 0; i < list.length; i++) {
                     try {
                         log(`Deleting tweet ${i + 1}/${list.length}: ${list[i]}`);
-                        
+
                         const r = await fetch(delEP, {
                             method: "POST",
                             headers: {
-                                accept: "*/*", 
-                                "content-type": "application/json", 
+                                accept: "*/*",
+                                "content-type": "application/json",
                                 authorization: bearer,
-                                "x-csrf-token": csrf, 
+                                "x-csrf-token": csrf,
                                 "x-client-transaction-id": delTid,
-                                "x-twitter-active-user": "yes", 
+                                "x-twitter-active-user": "yes",
                                 "x-twitter-auth-type": "OAuth2Session",
                                 "x-twitter-client-language": lang,
-                                "sec-ch-ua": ua, 
+                                "sec-ch-ua": ua,
                                 "sec-ch-ua-mobile": "?0",
                                 "sec-ch-ua-platform": "\"Windows\""
                             },
@@ -366,14 +374,14 @@ if (window.__tweetCleanerLoaded) {
                             }),
                             credentials: "include"
                         });
-                        
-                        if (r.status === 429) { 
-                            log("Rate-limit hit, waiting 60 seconds..."); 
+
+                        if (r.status === 429) {
+                            log("Rate-limit hit, waiting 60 seconds...");
                             i--; // retry this tweet
-                            await sleep(60000); 
-                            continue; 
+                            await sleep(60000);
+                            continue;
                         }
-                        
+
                         if (!r.ok) {
                             const text = await r.text();
                             log(`Failed to delete tweet ${list[i]}, status: ${r.status}`, text);
@@ -382,50 +390,50 @@ if (window.__tweetCleanerLoaded) {
                             log(`Successfully deleted ${i + 1}/${list.length}`, list[i]);
                             results.success++;
                         }
-                        
+
                         // Randomize delay 
                         const delay = 350 + Math.floor(Math.random() * 250);
                         await sleep(delay);
                     } catch (err) {
                         log(`Error deleting tweet ${list[i]}:`, err);
                         results.failed++;
-                        await sleep(2000); 
+                        await sleep(2000);
                     }
                 }
-                
+
                 return results;
             }
 
             try {
                 log("Starting X Tweet Cleaner process...");
-                
+
                 const statusWindow = document.createElement("div");
                 statusWindow.style.cssText = "position:fixed; top:10px; right:10px; padding:10px; " +
                     "background:rgba(0,0,0,0.8); color:white; z-index:9999; border-radius:5px; max-width:300px; font-size:12px;";
                 document.body.appendChild(statusWindow);
-                
+
                 const updateStatus = (msg) => {
                     statusWindow.textContent = msg;
                     log(msg);
                 };
-                
+
                 updateStatus("Finding tweets to delete...");
-                
+
                 const ids = (opts.ids && opts.ids.length) ? opts.ids : await harvest();
-                
+
                 if (!ids.length) {
                     updateStatus("No tweets found to delete");
                     setTimeout(() => statusWindow.remove(), 3000);
                     return alert("삭제 대상 없음");
                 }
-                
+
                 updateStatus(`Found ${ids.length} tweets to delete. Starting deletion...`);
-                
+
                 const results = await nuke(ids);
-                
+
                 updateStatus(`Done! Deleted ${results.success} tweets. Failed: ${results.failed}`);
                 setTimeout(() => statusWindow.remove(), 5000);
-                
+
                 alert(`Tweet Cleaner finished!\nDeleted: ${results.success}\nFailed: ${results.failed}`);
             } catch (e) {
                 console.error(e);
