@@ -424,7 +424,7 @@ if (window.__tweetCleanerLoaded) {
                 if (!ids.length) {
                     updateStatus("No tweets found to delete");
                     setTimeout(() => statusWindow.remove(), 3000);
-                    return alert("삭제 대상 없음");
+                    return alert("삭제할 트윗이 없습니다!");
                 }
 
                 updateStatus(`Found ${ids.length} tweets to delete. Starting deletion...`);
@@ -434,7 +434,7 @@ if (window.__tweetCleanerLoaded) {
                 updateStatus(`Done! Deleted ${results.success} tweets. Failed: ${results.failed}`);
                 setTimeout(() => statusWindow.remove(), 5000);
 
-                alert(`Tweet Cleaner finished!\nDeleted: ${results.success}\nFailed: ${results.failed}`);
+                alert(`트청을 완료했습니다!\n삭제 성공: ${results.success}\n삭제 실패: ${results.failed}`);
             } catch (e) {
                 console.error(e);
                 alert("Error: " + e.message);
