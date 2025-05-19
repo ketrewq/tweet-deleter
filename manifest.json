@@ -1,0 +1,13 @@
+{
+  "manifest_version": 3,
+  "name": "X Tweet Cleaner",
+  "version": "0.1.0",
+  "description": "Bulk-delete / un-retweet with filters",
+  "permissions": ["storage", "tabs", "scripting", "webRequest"],
+  "host_permissions": [
+    "https://x.com/*",
+    "https://twitter.com/*"
+  ],
+  "background": { "service_worker": "service_worker.js" },
+  "action": { "default_popup": "popup/popup.html" }
+}

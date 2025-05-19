@@ -1,0 +1,207 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>트윗 청소기 v1.1</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      width: 320px;
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    .container {
+      padding: 16px;
+    }
+    h1 {
+      font-size: 18px;
+      margin: 0 0 16px 0;
+      color: #1d9bf0;
+    }
+    .button {
+      display: block;
+      width: 100%;
+      background-color: #1d9bf0;
+      color: white;
+      border: none;
+      border-radius: 24px;
+      padding: 10px 16px;
+      font-size: 15px;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 16px;
+    }
+    .button:hover {
+      background-color: #1a8cd8;
+    }
+    .button:disabled {
+      background-color: #8ecdf7;
+      cursor: not-allowed;
+    }
+    .input-group {
+      margin-bottom: 12px;
+    }
+    label {
+      display: block;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+    input[type="text"], input[type="date"] {
+      width: calc(100% - 16px);
+      padding: 8px;
+      border: 1px solid #cfd9de;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .checkbox-group {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+    .checkbox-group label {
+      margin-left: 8px;
+      margin-bottom: 0;
+      cursor: pointer;
+    }
+    .status {
+      margin-top: 16px;
+      padding: 8px;
+      background-color: #f7f9fa;
+      border-radius: 4px;
+      font-size: 13px;
+      display: none;
+    }
+    .error {
+      color: #e0245e;
+    }
+    .help-text {
+      font-size: 12px;
+      color: #536471;
+      margin-top: 2px;
+      margin-bottom: 8px;
+    }
+    .tabs {
+      display: flex;
+      border-bottom: 1px solid #cfd9de;
+      margin-bottom: 16px;
+    }
+    .tab {
+      padding: 8px 16px;
+      cursor: pointer;
+      font-size: 14px;
+      border-bottom: 2px solid transparent;
+    }
+    .tab.active {
+      border-bottom-color: #1d9bf0;
+      color: #1d9bf0;
+      font-weight: bold;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    .action-buttons {
+      display: flex;
+      gap: 8px;
+    }
+    .refresh-btn {
+      font-size: 12px;
+      color: #1d9bf0;
+      cursor: pointer;
+      margin-top: 4px;
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>X Tweet Cleaner v1.1</h1>
+    
+    <div class="tabs">
+      <div class="tab active" data-tab="filters">필터</div>
+      <div class="tab" data-tab="advanced">고급</div>
+    </div>
+    
+    <div id="filters" class="tab-content active">
+      <div class="input-group">
+        <label for="keywords">키워드 필터 (쉼표로 구분)</label>
+        <input type="text" id="keywords" placeholder="예: 싫다, 좋다, 어쩌구">
+        <div class="help-text">이 키워드가 포함된 트윗만 삭제됩니다</div>
+      </div>
+      
+      <div class="input-group">
+        <label for="ignore">무시할 트윗 ID (쉼표로 구분)</label>
+        <input type="text" id="ignore" placeholder="링크에 있는 숫자: 1234567890,9876543210">
+        <div class="help-text">이 ID를 가진 트윗은 삭제하지 않습니다</div>
+      </div>
+      
+      <div class="input-group">
+        <label for="after">시작 날짜</label>
+        <input type="date" id="after">
+        <div class="help-text">이 날짜 이후의 트윗만 삭제합니다</div>
+      </div>
+      
+      <div class="input-group">
+        <label for="before">종료 날짜</label>
+        <input type="date" id="before">
+        <div class="help-text">이 날짜 이전의 트윗만 삭제합니다</div>
+      </div>
+      
+      <div class="checkbox-group">
+        <input type="checkbox" id="unretweet" checked>
+        <label for="unretweet">리트윗 취소</label>
+      </div>
+      
+      <div class="checkbox-group">
+        <input type="checkbox" id="keepPin" checked>
+        <label for="keepPin">고정트윗 유지</label>
+      </div>
+      
+      <div class="checkbox-group">
+        <input type="checkbox" id="linkOnly">
+        <label for="linkOnly">링크 포함 트윗만</label>
+      </div>
+    </div>
+    
+    <div id="advanced" class="tab-content">
+      <div class="checkbox-group">
+        <input type="checkbox" id="debugMode">
+        <label for="debugMode">디버그 모드</label>
+        <div class="help-text">콘솔에 상세 로그를 출력합니다</div>
+      </div>
+      
+      <div class="input-group">
+        <label>API 인증 상태</label>
+        <div id="authStatus">확인 중...</div>
+        <div class="refresh-btn" id="refreshAuth">인증 정보 갱신</div>
+        <div class="help-text">문제가 있으면 X.com 프로필을 새로고침 후 스크롤해보세요</div>
+      </div>
+    </div>
+    
+    <button id="cleanBtn" class="button">트윗 삭제 시작!</button>
+    
+    <div id="status" class="status"></div>
+  </div>
+  
+  <script src="popup.js"></script>
+  <script>
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+        
+        const tabId = tab.getAttribute('data-tab');
+        document.querySelectorAll('.tab-content').forEach(content => {
+          content.classList.remove('active');
+        });
+        document.getElementById(tabId).classList.add('active');
+      });
+    });
+  </script>
+</body>
+</html>
