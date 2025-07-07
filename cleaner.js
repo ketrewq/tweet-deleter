@@ -125,7 +125,7 @@ if (window.__tweetCleanerLoaded) {
                     if (r.status === 429) {
                         if (retryCount < 3) {
                             log("Rate limited (429), waiting and retrying...");
-                            const waitTime = Math.pow(2, retryCount) * 10000; // Exponential backoff
+                            const waitTime = Math.pow(2, retryCount) * 15000; // 15s, 30s, 60s
                             await sleep(waitTime);
                             return fetchTweets(cursor, retryCount + 1);
                         } else {
@@ -133,18 +133,38 @@ if (window.__tweetCleanerLoaded) {
                         }
                     }
 
+                    if (r.status === 404) {
+                        // 404는 해당 페이지/커서가 존재하지 않음을 의미 - 더 이상 트윗이 없음
+                        log("No more tweets available (404)");
+                        return { data: null }; // 빈 응답으로 처리하여 harvest 종료
+                    }
+
                     if (!r.ok) {
                         log("Timeline fetch failed:", r.status);
                         const text = await r.text();
                         log("Response:", text);
+                        
+                        // 5xx 서버 에러는 짧은 대기 후 재시도
+                        if (r.status >= 500 && retryCount < 2) {
+                            log(`Server error ${r.status}, retrying in 3s...`);
+                            await sleep(3000);
+                            return fetchTweets(cursor, retryCount + 1);
+                        }
+                        
                         throw new Error("timeline fetch " + r.status);
                     }
 
                     return r.json();
                 } catch (err) {
+                    // 네트워크 에러나 기타 에러에 대한 개선된 retry 로직
                     if (retryCount < 3) {
-                        log(`Fetch error: ${err.message}. Retrying in ${2 * (retryCount + 1)}s...`);
-                        await sleep(2000 * (retryCount + 1));
+                        // Exponential backoff with jitter
+                        const baseWait = 1000 * Math.pow(2, retryCount); // 1s, 2s, 4s
+                        const jitter = Math.random() * 500; // 0-500ms 랜덤
+                        const waitTime = baseWait + jitter;
+                        
+                        log(`Fetch error: ${err.message}. Retrying in ${Math.round(waitTime/1000)}s...`);
+                        await sleep(waitTime);
                         return fetchTweets(cursor, retryCount + 1);
                     }
                     throw err;
@@ -328,11 +348,22 @@ if (window.__tweetCleanerLoaded) {
 
                         log(`Progress: found ${ids.length} tweets to delete so far`);
 
-
-                        await sleep(1000);
+                        // 동적 대기 시간: 성공적으로 트윗을 찾으면 짧게, 아니면 길게
+                        const foundTweetsInBatch = foundEntries ? 500 : 1500;
+                        await sleep(foundTweetsInBatch);
                     } catch (err) {
                         log("Error harvesting tweets:", err);
-                        await sleep(5000); // Longer pause on error
+                        
+                        // 에러 타입에 따라 다른 대기 시간 적용
+                        if (err.message.includes("404") || err.message.includes("No more tweets")) {
+                            log("Reached end of timeline, stopping harvest");
+                            break;
+                        } else if (err.message.includes("429") || err.message.includes("Rate limit")) {
+                            await sleep(30000); // Rate limit은 긴 대기
+                        } else {
+                            await sleep(3000); // 기타 에러는 짧은 대기
+                        }
+                        
                         emptyResponseCount++;
                         if (emptyResponseCount >= maxEmpty) {
                             log("Too many errors, stopping harvest");
@@ -347,7 +378,18 @@ if (window.__tweetCleanerLoaded) {
             async function nuke(list) {
                 const delEP = "https://x.com/i/api/graphql/VaenaVgh5q5ih7kvyVjgtg/DeleteTweet";
                 const delTid = rand();
-                const results = { success: 0, failed: 0 };
+                const results = { 
+                    success: 0, 
+                    failed: 0, 
+                    notFound: 0,  // 404 - 존재하지 않는 트윗
+                    rateLimited: 0  // 429 재시도 횟수
+                };
+
+                // 동적 delay 조정을 위한 변수들
+                let baseDelay = 200;  // 기본 delay를 더 빠르게
+                let consecutiveErrors = 0;
+                const maxDelay = 2000;
+                const minDelay = 100;
 
                 for (let i = 0; i < list.length; i++) {
                     try {
@@ -377,27 +419,46 @@ if (window.__tweetCleanerLoaded) {
 
                         if (r.status === 429) {
                             log("Rate-limit hit, waiting 60 seconds...");
+                            results.rateLimited++;
                             i--; // retry this tweet
+                            baseDelay = Math.min(baseDelay * 1.5, maxDelay); // delay 증가
                             await sleep(60000);
                             continue;
                         }
 
-                        if (!r.ok) {
+                        if (r.status === 404) {
+                            // 404는 존재하지 않는 트윗이므로 별도 카운트하고 즉시 다음으로
+                            log(`Tweet ${list[i]} not found (404) - already deleted or doesn't exist`);
+                            results.notFound++;
+                            consecutiveErrors = 0; // 404는 정상적인 상황으로 간주
+                            // 404는 성공적인 처리로 간주하여 delay 감소
+                            baseDelay = Math.max(baseDelay * 0.9, minDelay);
+                        } else if (!r.ok) {
                             const text = await r.text();
                             log(`Failed to delete tweet ${list[i]}, status: ${r.status}`, text);
                             results.failed++;
+                            consecutiveErrors++;
+                            // 에러 시 delay 증가
+                            baseDelay = Math.min(baseDelay * 1.2, maxDelay);
                         } else {
                             log(`Successfully deleted ${i + 1}/${list.length}`, list[i]);
                             results.success++;
+                            consecutiveErrors = 0;
+                            // 성공 시 delay 감소
+                            baseDelay = Math.max(baseDelay * 0.95, minDelay);
                         }
 
-                        // Randomize delay 
-                        const delay = 350 + Math.floor(Math.random() * 250);
-                        await sleep(delay);
+                        // 동적 delay: 연속 에러가 많을수록 더 긴 대기
+                        const errorMultiplier = 1 + (consecutiveErrors * 0.2);
+                        const dynamicDelay = baseDelay * errorMultiplier + Math.floor(Math.random() * 100);
+                        await sleep(Math.min(dynamicDelay, maxDelay));
+                        
                     } catch (err) {
                         log(`Error deleting tweet ${list[i]}:`, err);
                         results.failed++;
-                        await sleep(2000);
+                        consecutiveErrors++;
+                        baseDelay = Math.min(baseDelay * 1.3, maxDelay);
+                        await sleep(Math.min(baseDelay * 2, 5000)); // 네트워크 에러는 더 긴 대기
                     }
                 }
 
@@ -431,10 +492,18 @@ if (window.__tweetCleanerLoaded) {
 
                 const results = await nuke(ids);
 
-                updateStatus(`Done! Deleted ${results.success} tweets. Failed: ${results.failed}`);
+                // 개선된 결과 표시
+                const totalProcessed = results.success + results.failed + results.notFound;
+                updateStatus(`Done! Processed ${totalProcessed} tweets`);
                 setTimeout(() => statusWindow.remove(), 5000);
 
-                alert(`트청을 완료했습니다!\n삭제 성공: ${results.success}\n삭제 실패: ${results.failed}`);
+                const resultMessage = `트청을 완료했습니다!\n` +
+                    `삭제 성공: ${results.success}\n` +
+                    `삭제 실패: ${results.failed}\n` +
+                    `존재하지 않음: ${results.notFound}\n` +
+                    (results.rateLimited > 0 ? `Rate limit 재시도: ${results.rateLimited}` : '');
+                
+                alert(resultMessage);
             } catch (e) {
                 console.error(e);
                 alert("Error: " + e.message);
