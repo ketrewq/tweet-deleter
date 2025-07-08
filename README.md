@@ -63,4 +63,4 @@ https://x.com/SUNAEOJISANG/status/1936707317405528150
 - [ ] 프론트엔드에 progress bar
 - [ ] 각종 UI/UX 수정
 - [x] 404에러 retry 너무 느리지 않게 개선 
-- [x] 없는 트윗이 카운트되는 현상 개선 
+- [ ] 없는 트윗이 카운트되는 현상 개선 
