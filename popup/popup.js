@@ -3,6 +3,18 @@ document.addEventListener('DOMContentLoaded', () => {
   const statusText = document.getElementById('status');
   const debugMode = document.getElementById('debugMode');
 
+  // 탭 전환 로직 (CSP 준수를 위해 inline 스크립트 대신 여기에 구현)
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+
+      const tabId = tab.getAttribute('data-tab');
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      document.getElementById(tabId)?.classList.add('active');
+    });
+  });
+  
   const showStatus = (msg, isError = false) => {
     statusText.textContent = msg;
     statusText.classList.toggle('error', isError);
