@@ -20,18 +20,23 @@ document.addEventListener('DOMContentLoaded', () => {
     statusText.style.display = 'block';
   };
 
+  const $ = (id) => document.getElementById(id);
+
   const getOptions = () => {
+    const keywordsRaw = $("keywords")?.value || "";
+    const ignoreRaw = $("ignore")?.value || "";
+
     return {
-      unretweet: document.getElementById('unretweet').checked,
-      keepPin: document.getElementById('keepPin').checked,
-      linkOnly: document.getElementById('linkOnly').checked,
-      keywords: document.getElementById('keywords').value
-        ? document.getElementById('keywords').value.split(',').map(s => s.trim())
+      unretweet: $("unretweet")?.checked || false,
+      keepPin: $("keepPin")?.checked || false,
+      linkOnly: $("linkOnly")?.checked || false,
+      keywords: keywordsRaw
+        ? keywordsRaw.split(',').map(s => s.trim()).filter(Boolean)
         : [],
-      ignore: document.getElementById('ignore').value
-        ? document.getElementById('ignore').value.split(',').map(s => s.trim())
+      ignore: ignoreRaw
+        ? ignoreRaw.split(',').map(s => s.trim()).filter(Boolean)
         : [],
-      debug: document.getElementById('debugMode')?.checked || false
+      debug: $("debugMode")?.checked || false
     };
   };
 
