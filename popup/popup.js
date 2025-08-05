@@ -31,8 +31,6 @@ document.addEventListener('DOMContentLoaded', () => {
       ignore: document.getElementById('ignore').value
         ? document.getElementById('ignore').value.split(',').map(s => s.trim())
         : [],
-      after: document.getElementById('after').value || null,
-      before: document.getElementById('before').value || null,
       debug: document.getElementById('debugMode')?.checked || false
     };
   };
@@ -102,10 +100,6 @@ document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('keywords').value = opts.keywords.join(', ');
     if (opts.ignore?.length)
       document.getElementById('ignore').value = opts.ignore.join(', ');
-    if (opts.after)
-      document.getElementById('after').value = opts.after;
-    if (opts.before)
-      document.getElementById('before').value = opts.before;
   });
 
   function updateAuthStatus() {
