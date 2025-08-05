@@ -2,6 +2,17 @@ document.addEventListener('DOMContentLoaded', () => {
   const cleanBtn = document.getElementById('cleanBtn');
   const statusText = document.getElementById('status');
   const debugMode = document.getElementById('debugMode');
+
+  document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+
+      const tabId = tab.getAttribute('data-tab');
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+      document.getElementById(tabId)?.classList.add('active');
+    });
+  });
   
   const showStatus = (msg, isError = false) => {
     statusText.textContent = msg;
